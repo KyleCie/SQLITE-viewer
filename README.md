@@ -99,3 +99,13 @@ Only uses Python’s standard libraries:
 MIT License. Free to use and modify.
 
 ---
+## Authors
+
+- [@KyleCie](https://www.github.com/KyleCie)
+
+
+## Badges
+
+
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
+

@@ -1,0 +1,135 @@
+
+COMMAND:
+
+SELECT HEROS.Titre,
+(
+    SELECT COUNT(*)
+    FROM (
+        SELECT DISTINCT ENNEMIS.Ville
+        FROM ENNEMIS
+        WHERE ENNEMIS.Age > (
+            SELECT AVG(E2.Age)
+            FROM ENNEMIS AS E2
+            WHERE E2.Rang IN (
+                SELECT R.Nom
+                FROM Rangs AS R
+                WHERE R.Niveau > (
+                    SELECT MIN(R2.Niveau)
+                    FROM Rangs AS R2
+                    WHERE R2.Niveau IS NOT NULL
+                )
+            )
+        )
+    ) AS villes_distinctes
+) AS nb_villes,
+(
+    SELECT SUM(ARMES.Puissance)
+    FROM ARMES
+    WHERE ARMES.Id_Heros = HEROS.Id
+    AND ARMES.Type IN (
+        SELECT T.Type
+        FROM TYPES AS T
+        WHERE T.Rarete = (
+            SELECT MAX(TR.Rarete)
+            FROM TYPES AS TR
+            WHERE TR.Categorie = "légendaire"
+        )
+    )
+) AS puissance_totale
+FROM HEROS
+WHERE HEROS.Id IN (
+    SELECT Id
+    FROM (
+        SELECT HEROS.Id
+        FROM HEROS
+        WHERE HEROS.Force > (
+            SELECT AVG(H2.Force)
+            FROM HEROS AS H2
+        )
+    )
+)
+ORDER BY puissance_totale DESC;
+
+RESULT:
+
+{
+    "condition": ["WHERE HEROS.Id IN (@9) ORDER BY puissance_totale DESC  "],
+    "name": "@0",
+    "request": " SELECT HEROS.Titre, (@1) AS nb_villes, (@6) AS puissance_totale FROM HEROS ",
+    "sub-request": [
+        {
+            "condition": [],
+            "name": "@1",
+            "request": "  SELECT COUNT(*)  FROM (@2) AS villes_distinctes ",
+            "sub-request": [
+                {
+                    "condition": ["WHERE ENNEMIS.Age > (@3)  "],
+                    "name": "@2",
+                    "request": "  SELECT DISTINCT ENNEMIS.Ville  FROM ENNEMIS  ",
+                    "sub-request": [
+                        {
+                            "condition": ["WHERE E2.Rang IN (@4)  "],
+                            "name": "@3",
+                            "request": "  SELECT AVG(E2.Age)  FROM ENNEMIS AS E2  ",
+                            "sub-request": [
+                                {
+                                    "condition": ["WHERE R.Niveau > (@5)  "],
+                                    "name": "@4",
+                                    "request": "  SELECT R.Nom  FROM Rangs AS R  ",
+                                    "sub-request": [
+                                        {
+                                            "condition": ["WHERE R2.Niveau IS NOT NULL  "],
+                                            "name": "@5",
+                                            "request": "  SELECT MIN(R2.Niveau)  FROM Rangs AS R2  ",
+                                            "sub-request": []
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "condition": ["WHERE ARMES.Id_Heros = HEROS.Id  ", "WHERE ARMES.Id_Heros = HEROS.Id  AND ARMES.Type IN (@7) "],
+            "name": "@6",
+            "request": "  SELECT SUM(ARMES.Puissance)  FROM ARMES  ",
+            "sub-request": [
+                {
+                    "condition": ["WHERE T.Rarete = (@8)  "],
+                    "name": "@7",
+                    "request": "  SELECT T.Type  FROM TYPES AS T  ",
+                    "sub-request": [
+                        {
+                            "condition": ["WHERE TR.Categorie = 'légendaire'  "],
+                            "name": "@8",
+                            "request": "  SELECT MAX(TR.Rarete)  FROM TYPES AS TR  ",
+                            "sub-request": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "condition": [],
+            "name": "@9",
+            "request": "  SELECT Id  FROM (@10) ",
+            "sub-request": [
+                {
+                    "condition": ["WHERE HEROS.Force > (@11)  "],
+                    "name": "@10",
+                    "request": "  SELECT HEROS.Id  FROM HEROS  ",
+                    "sub-request": [
+                        {
+                            "condition": [], 
+                            "name": "@11", 
+                            "request": "  SELECT AVG(H2.Force)  FROM HEROS AS H2  ", 
+                            "sub-request": []
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

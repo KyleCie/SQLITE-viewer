@@ -125,64 +125,111 @@ class Interpreter:
             "STRFTIME", "ABS", "RANDOM", "ROUND"
         }
 
-        def _parse(element: str, index_pos: int) -> tuple[dict[str, dict[str, dict | str] | str], int]:
+        SQL_CONDITION: set[str] = {
+            "WHERE", "ON"
+        }
+
+        def _separate_conditions(ast_dict: dict[str, str | list]) -> dict[str, str | list]:
+
+            request = ast_dict["request"]
+
+            for condition in SQL_CONDITION:
+                c_idx = request.upper().find(condition)
+
+                if c_idx != -1 and request.upper()[c_idx-1] == " ":
+                    og_request = request[0:c_idx]
+                    co_request = request[c_idx:]
+                    co_requests = []
+
+                    a_idx = request.upper().find("AND")
+
+                    while a_idx != -1:
+                        co_requests.append(request[c_idx:a_idx])
+                        a_idx = request.upper().find("AND", a_idx+1)
+
+                    co_requests.append(co_request)
+                    ast_dict["request"] = og_request
+                    ast_dict["condition"] = co_requests
+
+                    break
+                
+            return ast_dict
+
+        def _parse(element: str, index_pos: int, n_sub_request: int = 0) :
             """
             Only god knows how this thing work, ask him if you have
             questions. \n
             -- Kyle, 14/10/25 at 23:50
             """
 
-            el_dict: dict[str, dict[str, dict | str] | str] = {"element": ""}
+            ast_dict: dict[str, str | list] = {
+                                "name": f"@{n_sub_request}",
+                                "request": "",
+                                "condition": [],
+                                "sub-request": []
+                             }
 
+            in_func = False
             index_pos += 1
-            is_word: bool = False
 
             while index_pos < len(element):
-
                 e = element[index_pos]
 
-                if e in ["\n", "\t", ";"]: # remove tabs and newlines.
-                    el_dict["element"] += " "
+                if e in ["\n", "\t", ";"]:
+                    ast_dict["request"] += " "
                     index_pos += 1
                     continue
 
-                if e == " ": # remove excess spaces.
-                    if element[index_pos+1] == " ":
+                if e == "-" and element[index_pos+1] == "-":
+                    e = ")"
+
+                if e == " " and element[index_pos+1] == " ":
+                    index_pos += 1
+                    continue
+
+                if e == "(":
+
+                    request = ast_dict["request"].upper()
+
+                    for func in SQL_FUNCTIONS:
+                        if request[-len(func):] == func:
+                            in_func = True
+                            break
+
+                    if in_func:
+                        ast_dict["request"] += e
                         index_pos += 1
                         continue
 
-                if e == "(": 
-                    # how is this working
-                    last_word = el_dict["element"].upper()
+                    n_sub_request += 1
 
-                    for func in SQL_FUNCTIONS: # is a func ?
-                        if last_word[-len(func):] == func:
-                            el_dict["element"] += "("
-                            is_word = True
-                            index_pos += 1
-                            break
-                    
-                    if is_word == True: # it's a func.
-                        continue
-
-                    el_dict["parse"], index_pos = _parse(element, 
-                                                         index_pos)
+                    ast_dict["request"] += f"(@{n_sub_request})"
+                    ast, index_pos, n_sub_request = _parse(
+                                                            element=element, 
+                                                            index_pos=index_pos,
+                                                            n_sub_request=n_sub_request
+                                                          )
+                    ast_dict["sub-request"].append(ast)
+                    index_pos += 1
                     continue
 
                 if e == ")":
-                    if not is_word: # not func
-                        return el_dict, index_pos+1
-                    is_word = False # func
 
-                if e == "-": # comment
-                    if element[index_pos+1] == "-":
-                        return el_dict, index_pos+1
+                    if in_func:
+                        ast_dict["request"] += e
+                        index_pos += 1
+                        in_func = False
+                        continue
+                    
+                    ast_dict = _separate_conditions(ast_dict=ast_dict)
+                    return ast_dict, index_pos, n_sub_request
 
-                el_dict["element"] += e
+                ast_dict["request"] += e
                 index_pos += 1
 
-            return el_dict, index_pos
-        
+            ast_dict = _separate_conditions(ast_dict=ast_dict)
+            return ast_dict, index_pos, n_sub_request
+
         index_pos = -1
 
         return _parse(element, index_pos)[0]
@@ -254,9 +301,9 @@ class Interpreter:
         """
 
         parsed_dict = self.__parse(arg)
-        commands = self.__getCommands(parsed_dict, False)
+        #commands = self.__getCommands(parsed_dict, False)
 
-        return commands
+        return parsed_dict
 
 if __name__ == "__main__":
 
@@ -268,12 +315,54 @@ if __name__ == "__main__":
 
     result = inter.interpret(
 """
-SELECT ENNEMIS.Nom, HEROS.Nom FROM ENNEMIS INNER JOIN HEROS
-ON ENNEMIS.Ville LIKE "%City%" and HEROS.Ville LIKE "%City%"
-and ENNEMIS.Age > HEROS.Age and ENNEMIS.Age < (
-	SELECT SUM(HEROS.Age)/count(HEROS.Titre) FROM HEROS
-    WHERE HEROS.Age > (SELECT AVG(HEROS.Age) FROM HEROS)
-); -- pas sur
+SELECT HEROS.Titre,
+(
+    SELECT COUNT(*)
+    FROM (
+        SELECT DISTINCT ENNEMIS.Ville
+        FROM ENNEMIS
+        WHERE ENNEMIS.Age > (
+            SELECT AVG(E2.Age)
+            FROM ENNEMIS AS E2
+            WHERE E2.Rang IN (
+                SELECT R.Nom
+                FROM Rangs AS R
+                WHERE R.Niveau > (
+                    SELECT MIN(R2.Niveau)
+                    FROM Rangs AS R2
+                    WHERE R2.Niveau IS NOT NULL
+                )
+            )
+        )
+    ) AS villes_distinctes
+) AS nb_villes,
+(
+    SELECT SUM(ARMES.Puissance)
+    FROM ARMES
+    WHERE ARMES.Id_Heros = HEROS.Id
+    AND ARMES.Type IN (
+        SELECT T.Type
+        FROM TYPES AS T
+        WHERE T.Rarete = (
+            SELECT MAX(TR.Rarete)
+            FROM TYPES AS TR
+            WHERE TR.Categorie = "légendaire"
+        )
+    )
+) AS puissance_totale
+FROM HEROS
+WHERE HEROS.Id IN (
+    SELECT Id
+    FROM (
+        SELECT HEROS.Id
+        FROM HEROS
+        WHERE HEROS.Force > (
+            SELECT AVG(H2.Force)
+            FROM HEROS AS H2
+        )
+    )
+)
+ORDER BY puissance_totale DESC;
 """
                             )
     

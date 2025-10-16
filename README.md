@@ -12,7 +12,7 @@ It connects to a SQLite database and tries to **show how SQL commands are built 
 * Breaks complex queries into smaller parts
 * Shows how `WHERE`, `ON`, and nested queries work
 
-> ⚠️ The interpreter is still a **prototype**. It works, but will be **rewritten later**.
+> ⚠️ The interpreter is still a **prototype**.
 
 ---
 
@@ -34,10 +34,9 @@ from SQLviewer import DatabaseSystem, Interpreter
 db = DatabaseSystem()
 db.connect("your_database.db")
 
-interpreter = Interpreter()
-result = interpreter.interpret("SELECT * FROM users WHERE age > 30;")
-
-print(result)
+interpreter = Interpreter(db) # initiate with the database.
+interpreter.interpret("SELECT * FROM users WHERE age > 30;") # parsing.
+interpreter.run() # the actual run of sql commands
 ```
 
 ---
@@ -54,23 +53,27 @@ print(result)
 
 Example of what it prints:
 
-```python
-{
-    "condition": ["WHERE HEROS.Id IN (@9) ORDER BY puissance_totale DESC  "],
-    "name": "@0",
-    "request": " SELECT HEROS.Titre, (@1) AS nb_villes, (@6) AS puissance_totale FROM HEROS ",
-    "sub-request": [
-        {
-            "condition": [],
-            "name": "@1",
-            "request":  ...
+```
+FOR: SELECT SUM(HEROS.Age)/count(HEROS.Titre) FROM HEROS:
+[(34,)] 
+
+FOR: SELECT SUM(HEROS.Age)/count(HEROS.Titre) FROM HEROS WHERE HEROS.Ville = "Alberta":
+[(36,)]
+
+FOR: SELECT HEROS.Id FROM HEROS:
+[(1,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,), (11,), (12,)]
+
+FOR: SELECT HEROS.Id FROM HEROS WHERE HEROS.Titre = "Wolverine":
+...
+
+Done in 0. ... ms, initiated in 0. ... ms, and runned in 0. ... ms.
+TOTAL: 0. ... ms.
 ```
 
 ---
 
 ## To do
 
-* Create the function to run and show in the terminal the request.
 * Add a better step-by-step view
 * Optional: add a simple interface
 
@@ -80,6 +83,8 @@ Example of what it prints:
 
 ## updates
 
+* 16/10/25, [see commit](https://github.com/KyleCie/SQLITE-viewer/commit/f0bc0aaf75793113a5ee1952db7355bffb57f6f4) :
+  Added the function to run and show in the terminal the request, and another function to traduct the dict to a list of usable sql commands.
 * 16/10/25, [see commit](https://github.com/KyleCie/SQLITE-viewer/commit/ff70c2ed625ad0e7124bcfcc473b553f1eedc89b) :
   The entire Interpreter system (the parsing) has been rewirted, and change the list system to an entire dict system.
 * 15/10/25, [see commit](https://github.com/KyleCie/SQLITE-viewer/commit/3dfe477d4d256c47d2bbe3ac2edc48fff9f0d87e) :

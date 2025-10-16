@@ -68,6 +68,14 @@ class DatabaseSystem:
         if self.mydb is not None: # init for command.
             self.cursor = self.mydb.cursor()
 
+    def close(self) -> None:
+        """
+        Disconnect from the sql database.
+        """
+
+        self.cursor.close()
+        self.mydb.close()
+
     def execute(self, command: str = None) -> Any | list[Any]:
         """
         Execute the sql command from `command`.
@@ -109,6 +117,14 @@ class Interpreter:
     """
     An interpreter to serperate commands and run it.
     """
+
+    def __init__(self, my_db: DatabaseSystem):
+        """
+        init.
+        """
+
+        self.my_db = my_db
+        self.commands = []
 
     def __parse(self, element) -> dict[str, dict[str, dict | str] | str]:
         """
@@ -233,141 +249,138 @@ class Interpreter:
         index_pos = -1
 
         return _parse(element, index_pos)[0]
+
+    def __getCommands(self, ast: dict[str, dict[str, dict | str] | str]) -> list[str]:
+        """
+        traduct the dict to a executable list of sql commands.
+        """
+
+        def _tree_flattener(node, placeholder_map = None):
+            """
+            Yeah, seriously don't ask me. \n
+            -- Kyle, 21:36 16/10/25
+            """
+
+            if placeholder_map is None:
+                placeholder_map = {}
+
+            steps = []
+
+            for sub in node.get('sub-request', []):
+                steps.extend(_tree_flattener(sub, placeholder_map))
+        
+            req = node['request'].strip()
+            placeholder_map[node['name']] = req
+            steps.append([node["name"], req])
+
+            for cond in node.get('condition', []):
+                cond_expanded = cond
+
+                for ph, ph_req in placeholder_map.items():
+                    if ph in cond_expanded:
+                        cond_expanded = cond_expanded.replace(ph, f"({ph_req})")
+
+                steps.append([node["name"], f"{req} {cond_expanded.strip()}"])
+
+            return steps
     
-    def __getCommands(self, parsed_commands: dict[str, dict[str, dict | str] | str], difficult: bool) -> list[list[str]]:
-        """
-        Create a list of usable sql command from the parsed commands.
-        """
+        commands = _tree_flattener(ast)
 
-        raw_commands: list[str] = [parsed_commands["element"]]
-        commands: list[str] = []
-        el_dict: dict[str, dict | str] = parsed_commands["parse"]
+        request_commands: dict[str, str] = {}
+        clean_commands = []
 
-        while "parse" in el_dict.keys():
-            raw_commands.append(el_dict["element"])
-            el_dict = el_dict["parse"]
+        for idx, command in commands:
+            
+            a_idx = command.find("@")
 
-        raw_commands.append(el_dict["element"])
-        raw_commands.reverse()
+            while a_idx != -1:
+                key_el = "@"
+                idx_adder = a_idx + 1
 
-        for com in raw_commands:
+                while command[idx_adder] != ")":
+                    key_el += command[idx_adder]
+                    idx_adder += 1
+                
+                try:
+                    sub_com = request_commands[key_el]
+                except Exception as e:
+                    print(f"ERROR while running the {command} at {idx}, key = {key_el} !")
+                    exit()
 
-            u_com = com.upper()
+                command = command[0:a_idx] + sub_com + command[idx_adder:]
 
-            where = u_com.find("WHERE")
-            on = u_com.find("ON")
+                a_idx = command.find("@" \
+                "")
 
-            if where != -1:
-                if difficult:
-                    l_c = [com[0:where]]
-                    i_and = u_com.find("AND")
+            request_commands[idx] = command
+            clean_commands.append(command)
 
-                    while i_and != -1:
-                        l_c.append(com[0:i_and])
-                        i_and = u_com.find("AND", i_and+1)
-                    
-                    l_c.append(com)
-                    commands.append(l_c)
-                else:
-                    commands.append([com[0:where], com])
+        return clean_commands
 
-            elif on != -1:
-
-                if difficult:
-                    l_c = [com[0:on]]
-                    i_and = u_com.find("AND")
-
-                    while i_and != -1:
-                        l_c.append(com[0:i_and])
-                        i_and = u_com.find("AND", i_and+1)
-
-                    l_c.append(com)
-                    commands.append(l_c)
-                else:
-                    commands.append([com[0:on], com])
-
-            else:
-                commands.append([com])
-        return commands
-
-    def __run(self, commands: list[list[str]]) -> None:
+    def __run(self, commands: list[str]) -> None:
         """
         Run the commands and show in the terminal.
         """
 
-    def interpret(self, arg: str) -> list:
+        for command in commands:
+            print(f"FOR: {command}:")
+            result = self.my_db.execute(command=command)
+            print(result, "\n")
+
+    def run(self) -> None:
+        """
+        Run the sql command.
+        """
+
+        if self.commands == []:
+            warn("The Interpreter.command is empty ! Because it has received" \
+            " nothing to interpret first.")
+            return
+
+        self.__run(commands=self.commands)
+
+    def interpret(self, arg: str) -> None:
         """
         interpret a sql command.
         """
 
         parsed_dict = self.__parse(arg)
-        #commands = self.__getCommands(parsed_dict, False)
-
-        return parsed_dict
+        commands = self.__getCommands(parsed_dict)
+        self.commands = commands
 
 if __name__ == "__main__":
 
     dt0 = time()
 
-    inter = Interpreter()
+    db = DatabaseSystem()
+    db.connect("dbSuperHeros_eleve.db")
+
+    inter = Interpreter(db)
 
     dt1 = time()
 
-    result = inter.interpret(
+    parsed = inter.interpret(
 """
-SELECT HEROS.Titre,
-(
-    SELECT COUNT(*)
-    FROM (
-        SELECT DISTINCT ENNEMIS.Ville
-        FROM ENNEMIS
-        WHERE ENNEMIS.Age > (
-            SELECT AVG(E2.Age)
-            FROM ENNEMIS AS E2
-            WHERE E2.Rang IN (
-                SELECT R.Nom
-                FROM Rangs AS R
-                WHERE R.Niveau > (
-                    SELECT MIN(R2.Niveau)
-                    FROM Rangs AS R2
-                    WHERE R2.Niveau IS NOT NULL
-                )
-            )
-        )
-    ) AS villes_distinctes
-) AS nb_villes,
-(
-    SELECT SUM(ARMES.Puissance)
-    FROM ARMES
-    WHERE ARMES.Id_Heros = HEROS.Id
-    AND ARMES.Type IN (
-        SELECT T.Type
-        FROM TYPES AS T
-        WHERE T.Rarete = (
-            SELECT MAX(TR.Rarete)
-            FROM TYPES AS TR
-            WHERE TR.Categorie = "légendaire"
-        )
-    )
-) AS puissance_totale
-FROM HEROS
-WHERE HEROS.Id IN (
-    SELECT Id
-    FROM (
-        SELECT HEROS.Id
-        FROM HEROS
-        WHERE HEROS.Force > (
-            SELECT AVG(H2.Force)
-            FROM HEROS AS H2
-        )
-    )
-)
-ORDER BY puissance_totale DESC;
+SELECT ENNEMIS.Titre FROM ENNEMIS 
+WHERE ENNEMIS.Age < (
+	SELECT SUM(HEROS.Age)/count(HEROS.Titre) FROM HEROS 
+	WHERE HEROS.Ville = "Alberta"
+	) 
+AND ENNEMIS.id_SE IN (
+	SELECT HEROS.Id FROM HEROS 
+	WHERE HEROS.Titre = "Wolverine"
+);
 """
                             )
     
 
     dt2 = time()
 
-    pprint(result, width=200)
-    print(f"Done in {(dt2 - dt0)* 1000} ms, initiated in {(dt1 - dt0) * 1000} ms.")
+    inter.run()
+
+    dt3 = time()
+
+    print(f"Done in {(dt2 - dt0)* 1000} ms, initiated in {(dt1 - dt0) * 1000} ms, and runned in {(dt3 - dt2) * 1000} ms.")
+    print(f"TOTAL: {(dt3 - dt0) * 1000} ms.")
+
+    inter.my_db.close() # close the database.

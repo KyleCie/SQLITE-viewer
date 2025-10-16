@@ -55,18 +55,35 @@ print(result)
 Example of what it prints:
 
 ```python
-[['SELECT ENNEMIS.Nom, HEROS.Nom FROM ENNEMIS INNER JOIN HEROS',
-  'ON ENNEMIS.Ville LIKE "%City%" and HEROS.Ville LIKE "%City%" ...'], ...]
+{
+    "condition": ["WHERE HEROS.Id IN (@9) ORDER BY puissance_totale DESC  "],
+    "name": "@0",
+    "request": " SELECT HEROS.Titre, (@1) AS nb_villes, (@6) AS puissance_totale FROM HEROS ",
+    "sub-request": [
+        {
+            "condition": [],
+            "name": "@1",
+            "request":  ...
 ```
 
 ---
 
 ## To do
 
-* Rewrite the interpreter
 * Create the function to run and show in the terminal the request.
 * Add a better step-by-step view
 * Optional: add a simple interface
+
+---
+
+---
+
+## updates
+
+* 16/10/25, [see commit](https://github.com/KyleCie/SQLITE-viewer/commit/ff70c2ed625ad0e7124bcfcc473b553f1eedc89b) :
+  The entire Interpreter system (the parsing) has been rewirted, and change the list system to an entire dict system.
+* 15/10/25, [see commit](https://github.com/KyleCie/SQLITE-viewer/commit/3dfe477d4d256c47d2bbe3ac2edc48fff9f0d87e) :
+  initial commit.
 
 ---
 
@@ -82,13 +99,3 @@ Only uses Python’s standard libraries:
 MIT License. Free to use and modify.
 
 ---
-## Authors
-
-- [@KyleCie](https://www.github.com/KyleCie)
-
-
-## Badges
-
-
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
-

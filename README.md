@@ -96,7 +96,7 @@ WHERE ENNEMIS.Age < (
 
 ## To do
 
-*Optimisations.
+* Optimisations.
 
 ---
 

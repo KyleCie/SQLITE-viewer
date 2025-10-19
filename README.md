@@ -12,7 +12,7 @@ It connects to a SQLite database and tries to **show how SQL commands are built 
 * Breaks complex queries into smaller parts
 * Shows how `WHERE`, `ON`, and nested queries work
 
-> ⚠️ The interpreter is still a **prototype**.
+> ⚠️ The interpreter is still a **prototype**, just a personal project, but it should work !
 
 ---
 
@@ -29,12 +29,14 @@ It connects to a SQLite database and tries to **show how SQL commands are built 
 You can also use it in your own code:
 
 ```python
-from SQLviewer import DatabaseSystem, Interpreter
+from SQLviewer import DatabaseSystem, Terminal, Interpreter
 
 db = DatabaseSystem()
 db.connect("your_database.db")
 
-interpreter = Interpreter(db) # initiate with the database.
+term = Terminal()
+
+interpreter = Interpreter(db, term) # initiate with the database and terminal.
 interpreter.interpret("SELECT * FROM users WHERE age > 30;") # parsing.
 interpreter.run() # the actual run of sql commands
 ```
@@ -45,6 +47,7 @@ interpreter.run() # the actual run of sql commands
 
 * **`File`** – handles the SQLite connection
 * **`DatabaseSystem`** – runs SQL commands
+* **`Terminal`** - Printer system.
 * **`Interpreter`** – reads and breaks SQL queries into smaller parts
 
 ---
@@ -54,28 +57,46 @@ interpreter.run() # the actual run of sql commands
 Example of what it prints:
 
 ```
-FOR: SELECT SUM(HEROS.Age)/count(HEROS.Titre) FROM HEROS:
-[(34,)] 
+FOR REQUEST 1: SELECT AVG ( Age ) FROM HEROS
 
-FOR: SELECT SUM(HEROS.Age)/count(HEROS.Titre) FROM HEROS WHERE HEROS.Ville = "Alberta":
-[(36,)]
+         avg(Age)
+-----------------
+34.09090909090909 
 
-FOR: SELECT HEROS.Id FROM HEROS:
-[(1,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,), (11,), (12,)]
+FOR REQUEST 0: SELECT ENNEMIS.Titre FROM ENNEMIS
 
-FOR: SELECT HEROS.Id FROM HEROS WHERE HEROS.Titre = "Wolverine":
+          Titre
+---------------
+          Joker 
+---------------
 ...
 
-Done in 0. ... ms, initiated in 0. ... ms, and runned in 0. ... ms.
-TOTAL: 0. ... ms.
+FOR REQUEST 0: SELECT ENNEMIS.Titre FROM ENNEMIS WHERE ENNEMIS.Age < ( SELECT AVG ( Age ) FROM HEROS )
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                                            FROM 1
+          Titre
+---------------
+          Joker 
+---------------
+...
+
+Interpreted in 0... ms, initiated in 0... ms, and runned in 0...ms.
+TOTAL: 0... ms.
+```
+
+With the request:
+```
+SELECT ENNEMIS.Titre FROM ENNEMIS 
+WHERE ENNEMIS.Age < (
+	SELECT avg(Age) FROM HEROS
+);
 ```
 
 ---
 
 ## To do
 
-* Add a better step-by-step view
-* Optional: add a simple interface
+*Optimisations.
 
 ---
 
@@ -83,6 +104,8 @@ TOTAL: 0. ... ms.
 
 ## updates
 
+* 19/10/25, [see commit](https://github.com/KyleCie/SQLITE-viewer/commit/4a4f1379706a41751d082fc2ca353469116d2e68) :
+  New system to print and show sql request and commands, by adding a colour systems, request names, tables, and request names when it's a sub-request from another request.
 * 16/10/25, [see commit](https://github.com/KyleCie/SQLITE-viewer/commit/f0bc0aaf75793113a5ee1952db7355bffb57f6f4) :
   Added the function to run and show in the terminal the request, and another function to traduct the dict to a list of usable sql commands.
 * 16/10/25, [see commit](https://github.com/KyleCie/SQLITE-viewer/commit/ff70c2ed625ad0e7124bcfcc473b553f1eedc89b) :
@@ -104,13 +127,12 @@ Only uses Python’s standard libraries:
 MIT License. Free to use and modify.
 
 ---
+
 ## Authors
 
 - [@KyleCie](https://www.github.com/KyleCie)
 
-
 ## Badges
-
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 

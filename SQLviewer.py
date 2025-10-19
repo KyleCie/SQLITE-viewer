@@ -4,6 +4,33 @@ from typing import Any
 from pprint import pprint
 from time import time
 
+class SqlInfos:
+    """
+    A class containing the informations related with sqlite3.
+    """
+
+    WORDS: set[str] = {
+        "SELECT", "FROM", "INNER", "JOIN",
+        "INSERT", "INTO", "VALUES", "UPDATE",
+        "SET", "WHERE", "IS", "NULL", "DELETE",
+        "AND", "LIKE", "ORDER", "BY", "IN", "ON",
+        "AS", "WHEN", "NULLIF", "COMMIT", "DESC"
+    }
+
+    FUNCTIONS: set[str] = {
+        "MIN", "MAX", "COUNT", "SUM",
+        "AVG", "GROUP_CONCAT", "SUBSTR",
+        "TRIM", "LTRIM", "RTRIM", "LENGTH",
+        "REPLACE", "UPPER", "LOWER","INSTR",
+        "COALESCE", "IFNULL", "IIF", "NULLIF",
+        "DATE", "TIME","DATETIME", "JULIANDAY",
+        "STRFTIME", "ABS", "RANDOM", "ROUND"
+    }
+
+    CONDITION: set[str] = {
+        "WHERE", "ON"
+    }
+
 class File:
     """
     A file system class (with sql system).
@@ -76,14 +103,20 @@ class DatabaseSystem:
         self.cursor.close()
         self.mydb.close()
 
-    def execute(self, command: str = None) -> Any | list[Any]:
+    def execute(self, command: str = None) -> tuple[list[str | Any], Any | list[Any]]:
         """
         Execute the sql command from `command`.
-        return the command result, `Any` or a `list[Any]`.
+
+        return the columns names (from the result), `list[str | Any]`,
+        and the command result, `Any` or a `list[Any]`.
         """
 
         self.command = self.cursor.execute(command) # can't do sql=command.
-        return self.command.fetchall()
+        result = self.command.fetchall()
+
+        column_names = [desc[0] for desc in self.cursor.description] if self.cursor.description else []
+
+        return column_names, result
 
     def last_result(self) -> Any | list[Any]:
         """
@@ -113,17 +146,157 @@ class DatabaseSystem:
 
         return data
 
+class Terminal:
+    """
+    A class for cool printing in the terminal.
+    """
+
+    def __init__(self) -> None:
+        """
+        init.
+        """
+
+        self.WHITE  = "\033[97m"
+        self.BLUE = "\033[96m"
+        self.PURPLE = "\033[95m"
+        self.GREEN = "\033[92m"
+        self.RESET = "\033[0m"
+
+    def __find_difference(self, a: str, b: str) -> tuple[int, int] | None:
+        """
+        Return the (start, end) indices in `b` that differ from `a`.
+        If the strings are identical, return None.
+        """
+        if a == b:
+            return None
+        
+        start_pos: int = 0
+
+        for wordA, wordB in zip(a, b):
+            start_pos += 1
+
+            if wordA != wordB:
+                break
+
+        end_pos = start_pos
+
+        if end_pos >= len(a):
+            return (start_pos, len(b))
+
+        while a[end_pos] != b[end_pos]:
+            end_pos += 1
+
+            if len(a)-1 <= end_pos:
+                return (start_pos, len(b))
+
+        return (start_pos, end_pos)
+
+
+    def print_table(self, values: list[tuple[Any, ...]], head: list[str] = None) -> None:
+        """
+        Print a table from the values and a header.
+        """
+
+        if head is None:
+            warn("The variable head from Terminal.print_table is None !")
+            return
+
+        all_vals = values + [tuple(head)]
+        max_lens: list[int] = [max(len(str(v[idx])) for v in all_vals) for idx in range(0, len(values[0]), 1)]
+
+        header: str = ""
+
+        for idx, h in enumerate(head):
+            header += " " * (max_lens[idx] - len(str(h))) + str(h) + " | "
+
+        header = header[:-3]
+        separation = "-" * len(header)
+
+        print(header)
+        print(separation)
+
+        for v_idx, value in enumerate(values):
+            to_print: str = ""
+            for idx, element in enumerate(value):
+                to_print += " " * (max_lens[idx] - len(str(element))) + str(element) + " | "
+            print(to_print[:-2])
+
+            if v_idx != len(values)-1:
+                print(separation)
+        
+        print()
+
+    def print_request(self, request: str, old_request: str = None, difference_request_name: str = None, old_req_adder: int = 0) -> str:
+        """
+        Print a SQL request with color highlighting:
+        - keywords, and functions in blue
+        - table names in green
+        - values and constants in white
+        - others (columns, etc.) in purple
+
+        return the "cleaned" request.
+        """
+
+        tokens = request.strip().replace(",", " , ").replace("(", " ( ").replace(")", " ) ").split()
+        colored = []
+        next_is_table = False  # flag to color table names in green.
+
+        for word in tokens:
+            upper = word.upper()
+
+            if upper in SqlInfos.WORDS:
+                colored.append(f"{self.BLUE}{upper}{self.RESET}")
+                if upper in {"FROM", "JOIN", "INTO", "UPDATE"}:
+                    next_is_table = True
+                else:
+                    next_is_table = False
+
+            elif upper in SqlInfos.FUNCTIONS:
+                colored.append(f"{self.BLUE}{upper}{self.RESET}")
+                next_is_table = False
+
+            elif next_is_table and word not in {",", "(", ")"}:
+                colored.append(f"{self.GREEN}{word}{self.RESET}")
+                next_is_table = False
+
+            elif word in {",", "(", ")", ">=", ">", "<", "<=", "/", "+", "-", "*", "=", "%"} or "0" <= word <= "9":
+                colored.append(f"{self.WHITE}{word}{self.RESET}")
+
+            else:
+                colored.append(f"{self.PURPLE}{word}{self.RESET}")
+                next_is_table = False
+
+        print(" ".join(colored))
+
+        if old_request is None:
+            print()
+            return " ".join(tokens)
+
+        idx_pos = self.__find_difference(old_request, " ".join(tokens))
+
+        if idx_pos is None:
+            print()
+            return " ".join(tokens)
+
+        print(" " * (idx_pos[0] + old_req_adder + 1) + "^" * (idx_pos[1] - idx_pos[0]))
+
+        if difference_request_name:
+            print(" " * (idx_pos[0] + old_req_adder + int((idx_pos[1] - idx_pos[0] + 5)/2)) + "FROM " + difference_request_name)
+
+        return " ".join(tokens)
+
 class Interpreter:
     """
     An interpreter to serperate commands and run it.
     """
 
-    def __init__(self, my_db: DatabaseSystem):
+    def __init__(self, my_db: DatabaseSystem, term: Terminal):
         """
         init.
         """
 
         self.my_db = my_db
+        self.term = term
         self.commands = []
 
     def __parse(self, element) -> dict[str, dict[str, dict | str] | str]:
@@ -131,25 +304,11 @@ class Interpreter:
         Create a dict with the parsing elements.
         """
 
-        SQL_FUNCTIONS: set[str] = {
-            "MIN", "MAX", "COUNT", "SUM",
-            "AVG", "GROUP_CONCAT", "SUBSTR",
-            "TRIM", "LTRIM", "RTRIM", "LENGTH",
-            "REPLACE", "UPPER", "LOWER","INSTR",
-            "COALESCE", "IFNULL", "IIF", "NULLIF",
-            "DATE", "TIME","DATETIME", "JULIANDAY",
-            "STRFTIME", "ABS", "RANDOM", "ROUND"
-        }
-
-        SQL_CONDITION: set[str] = {
-            "WHERE", "ON"
-        }
-
         def _separate_conditions(ast_dict: dict[str, str | list]) -> dict[str, str | list]:
 
             request = ast_dict["request"]
 
-            for condition in SQL_CONDITION:
+            for condition in SqlInfos.CONDITION:
                 c_idx = request.upper().find(condition)
 
                 if c_idx != -1 and request.upper()[c_idx-1] == " ":
@@ -176,6 +335,8 @@ class Interpreter:
             Only god knows how this thing work, ask him if you have
             questions. \n
             -- Kyle, 14/10/25 at 23:50
+
+            just to know, the old system was running 10 to 15 times slower.
             """
 
             ast_dict: dict[str, str | list] = {
@@ -199,15 +360,11 @@ class Interpreter:
                 if e == "-" and element[index_pos+1] == "-":
                     e = ")"
 
-                if e == " " and element[index_pos+1] == " ":
-                    index_pos += 1
-                    continue
-
                 if e == "(":
 
                     request = ast_dict["request"].upper()
 
-                    for func in SQL_FUNCTIONS:
+                    for func in SqlInfos.FUNCTIONS:
                         if request[-len(func):] == func:
                             in_func = True
                             break
@@ -257,7 +414,7 @@ class Interpreter:
 
         def _tree_flattener(node, placeholder_map = None):
             """
-            Yeah, seriously don't ask me. \n
+            Yeah, seriously don't ask me how. \n
             -- Kyle, 21:36 16/10/25
             """
 
@@ -276,21 +433,29 @@ class Interpreter:
             for cond in node.get('condition', []):
                 cond_expanded = cond
 
-                for ph, ph_req in placeholder_map.items():
-                    if ph in cond_expanded:
-                        cond_expanded = cond_expanded.replace(ph, f"({ph_req})")
+
 
                 steps.append([node["name"], f"{req} {cond_expanded.strip()}"])
 
             return steps
     
         commands = _tree_flattener(ast)
-
         request_commands: dict[str, str] = {}
         clean_commands = []
 
+        idx_infos: str = ""
+        old_idx: str = ""
+        last_sub_req: str = ""
+
         for idx, command in commands:
-            
+            if idx_infos != idx:
+                clean_commands.append("NEW_REQUEST")
+                idx_infos = idx
+
+            if old_idx != idx:
+                clean_commands.append("IDX_" + idx[1:])
+                old_idx = idx
+
             a_idx = command.find("@")
 
             while a_idx != -1:
@@ -308,9 +473,11 @@ class Interpreter:
                     exit()
 
                 command = command[0:a_idx] + sub_com + command[idx_adder:]
+                last_sub_req = key_el[1:]
+                a_idx = command.find("@")
 
-                a_idx = command.find("@" \
-                "")
+            if last_sub_req != "":
+                clean_commands.append("SUB_REQ_" + last_sub_req)
 
             request_commands[idx] = command
             clean_commands.append(command)
@@ -322,10 +489,28 @@ class Interpreter:
         Run the commands and show in the terminal.
         """
 
+        old_command = None
+        request_idx = ""
+        idx_sub_req = ""
+
         for command in commands:
-            print(f"FOR: {command}:")
-            result = self.my_db.execute(command=command)
-            print(result, "\n")
+
+            if command == "NEW_REQUEST":
+                old_command = None
+                continue
+
+            if command.startswith("IDX_"):
+                request_idx = command[4:]
+                continue
+
+            if command.startswith("SUB_REQ_"):
+                idx_sub_req = command[8:]
+                continue
+
+            print(f"FOR REQUEST {request_idx}: ", end="")
+            old_command = term.print_request(command, old_command, idx_sub_req, 13 + len(request_idx))
+            colums, result = self.my_db.execute(command=command)
+            term.print_table(result, colums)
 
     def run(self) -> None:
         """
@@ -350,29 +535,26 @@ class Interpreter:
 
 if __name__ == "__main__":
 
+    command = """
+SELECT ENNEMIS.Titre FROM ENNEMIS 
+WHERE ENNEMIS.Age < (
+	SELECT SUM(HEROS.Age)/count(HEROS.Titre) FROM HEROS
+);
+    """
+
+
     dt0 = time()
 
     db = DatabaseSystem()
     db.connect("dbSuperHeros_eleve.db")
 
-    inter = Interpreter(db)
+    term = Terminal()
+
+    inter = Interpreter(db, term)
 
     dt1 = time()
 
-    parsed = inter.interpret(
-"""
-SELECT ENNEMIS.Titre FROM ENNEMIS 
-WHERE ENNEMIS.Age < (
-	SELECT SUM(HEROS.Age)/count(HEROS.Titre) FROM HEROS 
-	WHERE HEROS.Ville = "Alberta"
-	) 
-AND ENNEMIS.id_SE IN (
-	SELECT HEROS.Id FROM HEROS 
-	WHERE HEROS.Titre = "Wolverine"
-);
-"""
-                            )
-    
+    parsed = inter.interpret(command)
 
     dt2 = time()
 
@@ -380,7 +562,7 @@ AND ENNEMIS.id_SE IN (
 
     dt3 = time()
 
-    print(f"Done in {(dt2 - dt0)* 1000} ms, initiated in {(dt1 - dt0) * 1000} ms, and runned in {(dt3 - dt2) * 1000} ms.")
+    print(f"Interpreted in {(dt2 - dt1)* 1000} ms, initiated in {(dt1 - dt0) * 1000} ms, and runned in {(dt3 - dt2) * 1000} ms.")
     print(f"TOTAL: {(dt3 - dt0) * 1000} ms.")
 
     inter.my_db.close() # close the database.

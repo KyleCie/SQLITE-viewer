@@ -275,7 +275,7 @@ class Terminal:
             to_print += " " * (idx_pos[0] + old_req_adder + 1) + "^" * (request_name_pos[0] - idx_pos[0])
             to_print += self.YELLOW + "^"*((idx_pos[1] - idx_pos[0]) - (request_name_pos[0] - idx_pos[0] +1)) + self.RESET + "^" + "\n"
             to_print += " " * (idx_pos[0] + old_req_adder + (request_name_pos[0] - idx_pos[0]) + 
-                        int(((idx_pos[1] - idx_pos[0]) - (request_name_pos[0] - idx_pos[0]))/2)) \
+                        int(((idx_pos[1] - idx_pos[0]) - (request_name_pos[0] - idx_pos[0] + 13))/2)) \
                         + self.YELLOW + "FROM REQUEST " + difference_request_name + self.RESET
         else:
             to_print += " " * (idx_pos[0] + old_req_adder + 1) + "^" * (idx_pos[1] - idx_pos[0])
@@ -353,7 +353,6 @@ class Interpreter:
             while index_pos < len(element):
                 e = element[index_pos]
                 e_upper = e.upper()
-
 
                 if e in ["\n", "\t", ";"]:
                     ast_dict["request"] += " "

@@ -57,38 +57,36 @@ interpreter.run() # the actual run of sql commands
 Example of what it prints:
 
 ```
-FOR REQUEST 1: SELECT AVG ( Age ) FROM HEROS
+FOR REQUEST 1: SELECT SUM ( HEROS.Age ) / COUNT ( HEROS.Titre ) FROM HEROS
 
-         avg(Age)
------------------
-34.09090909090909 
+SUM(HEROS.Age) / count(HEROS.Titre)
+-----------------------------------
+                                 33
 
 FOR REQUEST 0: SELECT ENNEMIS.Titre FROM ENNEMIS
 
           Titre
 ---------------
-          Joker 
+          Joker
 ---------------
 ...
 
-FOR REQUEST 0: SELECT ENNEMIS.Titre FROM ENNEMIS WHERE ENNEMIS.Age < ( SELECT AVG ( Age ) FROM HEROS )
-                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                                                                            FROM 1
+FOR REQUEST 0: SELECT ENNEMIS.Titre FROM ENNEMIS WHERE ENNEMIS.Age < ( SELECT SUM ( HEROS.Age ) / COUNT ( HEROS.Titre ) FROM HEROS )
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                                                             FROM REQUEST 1
           Titre
 ---------------
-          Joker 
+          Joker
 ---------------
 ...
 
-Interpreted in 0... ms, initiated in 0... ms, and runned in 0...ms.
-TOTAL: 0... ms.
 ```
 
 With the request:
 ```
 SELECT ENNEMIS.Titre FROM ENNEMIS 
 WHERE ENNEMIS.Age < (
-	SELECT avg(Age) FROM HEROS
+    SELECT SUM(HEROS.Age) / count(HEROS.Titre) FROM HEROS 
 );
 ```
 
@@ -96,14 +94,14 @@ WHERE ENNEMIS.Age < (
 
 ## To do
 
-* Optimisations.
-
 ---
-
+* Remove bugs.
 ---
 
 ## updates
 
+* 20/10/25, [see commit 1](https://github.com/KyleCie/SQLITE-viewer/commit/e9ce47744e104b13d9a54c4b6adc23d4d4664ece), [see commit 2](https://github.com/KyleCie/SQLITE-viewer/commit/2b504d93c1646bd7831b48ad55e0046f55b3bde2) :
+  A whopping 11.34x faster compared to  the last version (with the same request, used for the example (0.034 to 0.003 second.)) by using less prints and using the sys.stdout system, and optimize some other functions.
 * 19/10/25, [see commit](https://github.com/KyleCie/SQLITE-viewer/commit/4a4f1379706a41751d082fc2ca353469116d2e68) :
   New system to print and show sql request and commands, by adding a colour systems, request names, tables, and request names when it's a sub-request from another request.
 * 16/10/25, [see commit](https://github.com/KyleCie/SQLITE-viewer/commit/f0bc0aaf75793113a5ee1952db7355bffb57f6f4) :

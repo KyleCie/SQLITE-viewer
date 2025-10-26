@@ -90,7 +90,7 @@ WHERE ENNEMIS.Age < (
 
 ---
 
-- Remove bugs.
+- Remove bugs. (even if I removed some.)
 
 ---
 
@@ -114,7 +114,7 @@ WHERE ENNEMIS.Age < (
 ## Requirements
 
 Only uses Python’s standard libraries:
-`sqlite3`, `warnings`, `pprint`, `time`, `typing`
+`sqlite3`, `warnings`, `typing`, `sys.stdout`, `base64.b64decode`
 
 ---
 

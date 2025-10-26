@@ -1,3 +1,27 @@
+"""
+MIT License
+
+Copyright (c) 2025 Kyle Ciechowicz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
 import sqlite3 as sql
 from warnings import warn
 from typing import Any
@@ -89,6 +113,7 @@ class DatabaseSystem:
     def __call_func(self, *arg):
         """
         Create an internal sql function for the interpreter.
+        for the interpreter to get some infos from the og request.
         """
         from base64 import b64decode
 
@@ -216,7 +241,8 @@ class Terminal:
                 to_print += "\n"
         stdout.write(to_print)
 
-    def print_request(self, request: str, old_request: str = None, difference_request_name: str = None, request_name_pos: tuple = None, old_req_adder: int = 0) -> str:
+    def print_request(self, request: str, old_request: str = None, difference_request_name: str = None, request_name_pos: tuple = None, 
+                      old_req_adder: int = 0) -> str:
         """
         Print a SQL request with color highlighting:
         - keywords, and functions in blue
